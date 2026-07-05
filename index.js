@@ -4,35 +4,6 @@ const play = require('play-dl');
 
 const queue = new Map();
 
-// Register Slash Commands
-const { REST, Routes } = require('discord.js');
-
-const commands = [
-    new SlashCommandBuilder()
-        .setName('play')
-        .setDescription('Putar lagu')
-        .addStringOption(option => 
-            option.setName('query')
-                .setDescription('Judul lagu atau link')
-                .setRequired(true)
-        ),
-    new SlashCommandBuilder().setName('skip').setDescription('Skip lagu'),
-    new SlashCommandBuilder().setName('stop').setDescription('Stop musik')
-].map(command => command.toJSON());
-
-const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-
-(async () => {
-    try {
-        console.log('Sedang mendaftarkan slash commands...');
-        await rest.put(Routes.applicationCommands('1523105356966793356'), { body: commands });
-        console.log('✅ Slash commands berhasil didaftarkan!');
-    } catch (error) {
-        console.error(error);
-    }
-})();
-
-// Main Bot
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -79,11 +50,11 @@ client.on('interactionCreate', async interaction => {
                 await interaction.editReply(`🎵 **Memutar:** ${song.title}`);
             } else {
                 serverQueue.songs.push(song);
-                await interaction.editReply(`✅ **Ditambahkan:** ${song.title}`);
+                await interaction.editReply(`✅ **Ditambahkan ke antrian:** ${song.title}`);
             }
         } catch (e) {
             console.error(e);
-            await interaction.editReply('❌ Gagal memutar lagu!');
+            await interaction.editReply('❌ Gagal! Coba link YouTube atau judul lagu.');
         }
     } 
     else if (interaction.commandName === 'skip') {
