@@ -1,6 +1,6 @@
 const { Client, GatewayIntentBits, SlashCommandBuilder } = require('discord.js');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
-const play = require('play-dl');
+const ytdl = require('ytdl-core');
 
 const queue = new Map();
 
@@ -32,8 +32,11 @@ client.on('interactionCreate', async interaction => {
         await interaction.deferReply();
 
         try {
-            const search = await play.search(query, { limit: 1 });
-            const song = search[0];
+            const songInfo = await ytdl.getInfo(query);
+            const song = {
+                title: songInfo.videoDetails.title,
+                url: songInfo.videoDetails.video_url
+            };
 
             if (!serverQueue) {
                 const queueConstruct = { textChannel: interaction.channel, voiceChannel, songs: [], connection: null, player: null };
@@ -50,11 +53,11 @@ client.on('interactionCreate', async interaction => {
                 await interaction.editReply(`🎵 **Memutar:** ${song.title}`);
             } else {
                 serverQueue.songs.push(song);
-                await interaction.editReply(`✅ **Ditambahkan ke antrian:** ${song.title}`);
+                await interaction.editReply(`✅ **Ditambahkan:** ${song.title}`);
             }
         } catch (e) {
             console.error(e);
-            await interaction.editReply('❌ Gagal! Coba link YouTube atau judul lagu.');
+            await interaction.editReply('❌ Gagal! Coba link YouTube biasa (bukan Shorts).');
         }
     } 
     else if (interaction.commandName === 'skip') {
@@ -69,7 +72,7 @@ client.on('interactionCreate', async interaction => {
             if (serverQueue.player) serverQueue.player.stop();
             if (serverQueue.connection) serverQueue.connection.destroy();
             queue.delete(interaction.guild.id);
-            interaction.reply('🛑 Musik dihentikan!');
+            interaction.reply('🛑 Stopped!');
         }
     }
 });
@@ -82,17 +85,15 @@ function playSong(guild, song) {
         return;
     }
 
-    play.stream(song.url).then(stream => {
-        const resource = createAudioResource(stream.stream, { inputType: stream.type });
-        const player = createAudioPlayer();
-        serverQueue.player = player;
-        player.play(resource);
-        serverQueue.connection.subscribe(player);
+    const resource = createAudioResource(ytdl(song.url, { filter: 'audioonly' }));
+    const player = createAudioPlayer();
+    serverQueue.player = player;
+    player.play(resource);
+    serverQueue.connection.subscribe(player);
 
-        player.on(AudioPlayerStatus.Idle, () => {
-            serverQueue.songs.shift();
-            playSong(guild, serverQueue.songs[0]);
-        });
+    player.on(AudioPlayerStatus.Idle, () => {
+        serverQueue.songs.shift();
+        playSong(guild, serverQueue.songs[0]);
     });
 
     serverQueue.textChannel.send(`🎶 **Sedang memutar:** ${song.title}`);
